@@ -105,8 +105,18 @@ func buildServiceDetails(service *corev1.Service, logger *slog.Logger) (*Service
 
 	// Check for annotations including external-address-rest
 	if service.Annotations != nil {
+		// Model Registry operator Services use the standard OpenShift annotation
+		// keys, while older BFF-created Services used the short camelCase keys.
+		// Accept both so federated registry discovery preserves authored metadata
+		// across operator-managed and legacy Services.
 		displayName = service.Annotations["displayName"]
+		if displayName == "" {
+			displayName = service.Annotations["openshift.io/display-name"]
+		}
 		description = service.Annotations["description"]
+		if description == "" {
+			description = service.Annotations["openshift.io/description"]
+		}
 
 		// Look for external-address-rest annotation with any prefix
 		for key, value := range service.Annotations {
