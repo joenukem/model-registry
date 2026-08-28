@@ -201,6 +201,53 @@ def test_download_from_s3(minimal_update_artifact_env_source_dest_vars):
         )
 
 
+def test_download_from_s3_exact_object_key(
+    minimal_update_artifact_env_source_dest_vars,
+):
+    """An exact object key is downloaded to its basename, not to '.'."""
+    os.environ["MODEL_SYNC_SOURCE_AWS_KEY"] = "models/v1/model.onnx"
+    config = get_config([])
+
+    with patch("job.download._connect_to_s3") as mock_connect:
+        mock_s3 = Mock()
+        mock_connect.return_value = (mock_s3, Mock())
+        mock_paginator = Mock()
+        mock_paginator.paginate.return_value = [
+            {"Contents": [{"Key": "models/v1/model.onnx"}]}
+        ]
+        mock_s3.get_paginator.return_value = mock_paginator
+
+        download_from_s3(config.source, config.storage.path)
+
+        mock_s3.download_file.assert_called_once_with(
+            "test-bucket",
+            "models/v1/model.onnx",
+            os.path.join(config.storage.path, "model.onnx"),
+        )
+
+
+def test_download_from_s3_no_matching_objects(
+    minimal_update_artifact_env_source_dest_vars,
+):
+    """An empty prefix fails before an empty model image can be uploaded."""
+    config = get_config([])
+
+    with patch("job.download._connect_to_s3") as mock_connect:
+        mock_s3 = Mock()
+        mock_connect.return_value = (mock_s3, Mock())
+        mock_paginator = Mock()
+        mock_paginator.paginate.return_value = [{"Contents": []}]
+        mock_s3.get_paginator.return_value = mock_paginator
+
+        with pytest.raises(
+            FileNotFoundError,
+            match=r"No S3 objects matched s3://test-bucket/test-key",
+        ):
+            download_from_s3(config.source, config.storage.path)
+
+        mock_s3.download_file.assert_not_called()
+
+
 def test_download_from_s3_with_region(minimal_update_artifact_env_source_dest_vars):
     """Test download_from_s3 function with region specified"""
 
