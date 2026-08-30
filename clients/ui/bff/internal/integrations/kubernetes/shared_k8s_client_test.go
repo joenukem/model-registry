@@ -113,6 +113,33 @@ func TestTokenCanNamespaceAccessRegistry_UsesSelfSubjectAccessReview(t *testing.
 	}
 }
 
+func TestBuildServiceDetailsReadsOperatorDisplayAnnotations(t *testing.T) {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ai500-r05-session",
+			Annotations: map[string]string{
+				"openshift.io/display-name": "AI500 Fraud Registry",
+				"openshift.io/description":  "Session model registry",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "10.0.0.10",
+			Ports:     []corev1.ServicePort{{Name: "http-api", Port: 8080}},
+		},
+	}
+
+	details, err := buildServiceDetails(service, slog.Default())
+	if err != nil {
+		t.Fatalf("buildServiceDetails returned error: %v", err)
+	}
+	if details.DisplayName != "AI500 Fraud Registry" {
+		t.Fatalf("expected operator display name, got %q", details.DisplayName)
+	}
+	if details.Description != "Session model registry" {
+		t.Fatalf("expected operator description, got %q", details.Description)
+	}
+}
+
 func TestGetTransferJobPods_FiltersByJobNameAndHandlesEmptyInputs(t *testing.T) {
 	//nolint:staticcheck // fake.NewSimpleClientset is sufficient for unit tests; field management is not required here.
 	clientset := fake.NewSimpleClientset()
