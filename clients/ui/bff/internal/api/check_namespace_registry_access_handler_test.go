@@ -11,6 +11,7 @@ import (
 	"github.com/kubeflow/hub/ui/bff/internal/config"
 	"github.com/kubeflow/hub/ui/bff/internal/constants"
 	"github.com/kubeflow/hub/ui/bff/internal/integrations/kubernetes"
+	"github.com/kubeflow/hub/ui/bff/internal/integrations/kubernetes/k8mocks"
 	"github.com/kubeflow/hub/ui/bff/internal/repositories"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,7 +30,7 @@ var _ = Describe("CheckNamespaceRegistryAccessHandler", func() {
 			}
 		})
 
-		It("should return hasAccess true when namespace default SA has access to the registry", func() {
+		It("should return hasAccess true when the authenticated user has access to the registry", func() {
 			body := CheckNamespaceRegistryAccessRequestEnvelope{
 				Data: CheckNamespaceRegistryAccessRequest{
 					Namespace:         "dora-namespace",
@@ -44,7 +45,10 @@ var _ = Describe("CheckNamespaceRegistryAccessHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Set("Content-Type", "application/json")
 
-			reqIdentity := &kubernetes.RequestIdentity{UserID: KubeflowUserIDHeaderValue}
+			reqIdentity := &kubernetes.RequestIdentity{
+				UserID: k8mocks.DefaultTestUsers[1].UserName,
+				Groups: k8mocks.DefaultTestUsers[1].Groups,
+			}
 			ctx := context.WithValue(req.Context(), constants.RequestIdentityKey, reqIdentity)
 			req = req.WithContext(ctx)
 
@@ -62,7 +66,7 @@ var _ = Describe("CheckNamespaceRegistryAccessHandler", func() {
 			Expect(envelope.Data.HasAccess).To(BeTrue())
 		})
 
-		It("should return hasAccess false when namespace default SA has no access to the registry", func() {
+		It("should return hasAccess false when the authenticated user has no access to the registry", func() {
 			body := CheckNamespaceRegistryAccessRequestEnvelope{
 				Data: CheckNamespaceRegistryAccessRequest{
 					Namespace:         "bella-namespace",
@@ -77,7 +81,10 @@ var _ = Describe("CheckNamespaceRegistryAccessHandler", func() {
 			Expect(err).NotTo(HaveOccurred())
 			req.Header.Set("Content-Type", "application/json")
 
-			reqIdentity := &kubernetes.RequestIdentity{UserID: KubeflowUserIDHeaderValue}
+			reqIdentity := &kubernetes.RequestIdentity{
+				UserID: k8mocks.DefaultTestUsers[2].UserName,
+				Groups: k8mocks.DefaultTestUsers[2].Groups,
+			}
 			ctx := context.WithValue(req.Context(), constants.RequestIdentityKey, reqIdentity)
 			req = req.WithContext(ctx)
 

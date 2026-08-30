@@ -9,8 +9,8 @@ export type UseCheckNamespaceRegistryAccessResult = {
 };
 
 /**
- * Checks if the selected namespace's default ServiceAccount has access to the model registry
- * (for register-and-store job validation). Runs when jobNamespace, registryName, and
+ * Checks if the authenticated user can access the selected model registry
+ * before register-and-store submission. Runs when jobNamespace, registryName, and
  * registryNamespace are all defined.
  */
 export const useCheckNamespaceRegistryAccess = (

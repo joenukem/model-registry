@@ -230,8 +230,8 @@ func (kc *TokenKubernetesClient) CanAccessServiceInNamespace(ctx context.Context
 	return true, nil
 }
 
-func (kc *TokenKubernetesClient) CanNamespaceAccessRegistry(ctx context.Context, _ *RequestIdentity, jobNamespace, registryName, registryNamespace string) (bool, error) {
-	return CanNamespaceAccessRegistry(ctx, kc.Client, kc.Logger, jobNamespace, registryName, registryNamespace)
+func (kc *TokenKubernetesClient) CanNamespaceAccessRegistry(ctx context.Context, identity *RequestIdentity, _ string, registryName, registryNamespace string) (bool, error) {
+	return kc.CanAccessServiceInNamespace(ctx, identity, registryNamespace, registryName)
 }
 
 // RequestIdentity is unused because the token already represents the user identity.

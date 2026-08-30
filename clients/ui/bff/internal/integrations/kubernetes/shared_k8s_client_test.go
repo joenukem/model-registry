@@ -3,17 +3,114 @@ package kubernetes
 import (
 	"context"
 	"log/slog"
+	"reflect"
 	"testing"
 
 	"github.com/kubeflow/hub/ui/bff/internal/constants"
+	authv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func withLogger(ctx context.Context) context.Context {
 	logger := slog.New(slog.Default().Handler())
 	return context.WithValue(ctx, constants.TraceLoggerKey, logger)
+}
+
+func TestCanNamespaceAccessRegistry_ReviewsAuthenticatedIdentity(t *testing.T) {
+	//nolint:staticcheck // fake.NewSimpleClientset is sufficient for isolated SAR request validation.
+	clientset := fake.NewSimpleClientset()
+	var submitted *authv1.SubjectAccessReview
+	clientset.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		createAction := action.(k8stesting.CreateAction)
+		submitted = createAction.GetObject().(*authv1.SubjectAccessReview)
+		return true, &authv1.SubjectAccessReview{
+			Status: authv1.SubjectAccessReviewStatus{Allowed: true},
+		}, nil
+	})
+
+	identity := &RequestIdentity{
+		UserID: "maya@example.com",
+		Groups: []string{"model-engineers", "system:authenticated"},
+	}
+	allowed, err := CanNamespaceAccessRegistry(
+		context.Background(),
+		clientset,
+		slog.New(slog.Default().Handler()),
+		identity,
+		"session-registry",
+		"model-registries",
+	)
+	if err != nil {
+		t.Fatalf("CanNamespaceAccessRegistry returned error: %v", err)
+	}
+	if !allowed {
+		t.Fatal("expected authenticated identity to be allowed")
+	}
+	if submitted == nil {
+		t.Fatal("expected a SubjectAccessReview to be submitted")
+	}
+	if submitted.Spec.User != identity.UserID {
+		t.Fatalf("expected SAR user %q, got %q", identity.UserID, submitted.Spec.User)
+	}
+	if !reflect.DeepEqual(submitted.Spec.Groups, identity.Groups) {
+		t.Fatalf("expected SAR groups %v, got %v", identity.Groups, submitted.Spec.Groups)
+	}
+	wantAttributes := &authv1.ResourceAttributes{
+		Verb:      "get",
+		Resource:  "services",
+		Namespace: "model-registries",
+		Name:      "session-registry",
+	}
+	if !reflect.DeepEqual(submitted.Spec.ResourceAttributes, wantAttributes) {
+		t.Fatalf("expected SAR attributes %+v, got %+v", wantAttributes, submitted.Spec.ResourceAttributes)
+	}
+}
+
+func TestTokenCanNamespaceAccessRegistry_UsesSelfSubjectAccessReview(t *testing.T) {
+	//nolint:staticcheck // fake.NewSimpleClientset is sufficient for isolated SSAR request validation.
+	clientset := fake.NewSimpleClientset()
+	var submitted *authv1.SelfSubjectAccessReview
+	clientset.PrependReactor("create", "selfsubjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		createAction := action.(k8stesting.CreateAction)
+		submitted = createAction.GetObject().(*authv1.SelfSubjectAccessReview)
+		return true, &authv1.SelfSubjectAccessReview{
+			Status: authv1.SubjectAccessReviewStatus{Allowed: false},
+		}, nil
+	})
+
+	client := &TokenKubernetesClient{SharedClientLogic: SharedClientLogic{
+		Client: clientset,
+		Logger: slog.New(slog.Default().Handler()),
+	}}
+	allowed, err := client.CanNamespaceAccessRegistry(
+		context.Background(),
+		&RequestIdentity{Token: "not-used-by-the-clientset"},
+		"session-project",
+		"unrelated-registry",
+		"other-namespace",
+	)
+	if err != nil {
+		t.Fatalf("CanNamespaceAccessRegistry returned error: %v", err)
+	}
+	if allowed {
+		t.Fatal("expected unrelated registry access to be denied")
+	}
+	if submitted == nil {
+		t.Fatal("expected a SelfSubjectAccessReview to be submitted")
+	}
+	wantAttributes := &authv1.ResourceAttributes{
+		Verb:      "get",
+		Resource:  "services",
+		Namespace: "other-namespace",
+		Name:      "unrelated-registry",
+	}
+	if !reflect.DeepEqual(submitted.Spec.ResourceAttributes, wantAttributes) {
+		t.Fatalf("expected SSAR attributes %+v, got %+v", wantAttributes, submitted.Spec.ResourceAttributes)
+	}
 }
 
 func TestGetTransferJobPods_FiltersByJobNameAndHandlesEmptyInputs(t *testing.T) {

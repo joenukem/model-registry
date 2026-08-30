@@ -20,20 +20,16 @@ func CanNamespaceAccessRegistry(
 	ctx context.Context,
 	client kubernetes.Interface,
 	logger *slog.Logger,
-	jobNamespace, registryName, registryNamespace string,
+	identity *RequestIdentity,
+	registryName, registryNamespace string,
 ) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	saSubject := "system:serviceaccount:" + jobNamespace + ":default"
 	sar := &authv1.SubjectAccessReview{
 		Spec: authv1.SubjectAccessReviewSpec{
-			User: saSubject,
-			Groups: []string{
-				"system:serviceaccounts",
-				"system:serviceaccounts:" + jobNamespace,
-				"system:authenticated",
-			},
+			User:   identity.UserID,
+			Groups: identity.Groups,
 			ResourceAttributes: &authv1.ResourceAttributes{
 				Verb:      "get",
 				Resource:  "services",
@@ -47,7 +43,7 @@ func CanNamespaceAccessRegistry(
 	if err != nil {
 		if k8serrors.IsForbidden(err) {
 			logger.Warn("user lacks permission to create SubjectAccessReviews",
-				"jobNamespace", jobNamespace,
+				"user", identity.UserID,
 				"registry", registryName,
 				"registryNamespace", registryNamespace,
 				"error", err,
@@ -57,8 +53,8 @@ func CanNamespaceAccessRegistry(
 		return false, fmt.Errorf("SAR failed: %w", err)
 	}
 	if !response.Status.Allowed {
-		logger.Warn("access denied for namespace registry access",
-			"jobNamespace", jobNamespace,
+		logger.Warn("authenticated user denied namespace registry access",
+			"user", identity.UserID,
 			"registry", registryName,
 			"registryNamespace", registryNamespace,
 		)

@@ -4,45 +4,33 @@ import (
 	"context"
 
 	"github.com/kubeflow/hub/ui/bff/internal/integrations/kubernetes"
+	"github.com/kubeflow/hub/ui/bff/internal/integrations/kubernetes/k8mocks"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("CanNamespaceAccessRegistry (shared)", func() {
-	Context("when default SA in job namespace has access to the registry", func() {
-		It("returns true for dora-namespace default SA and model-registry-dora in dora-namespace", func() {
+	Context("when the authenticated user has access to the registry", func() {
+		It("returns true through the user's delegated group", func() {
 			ctx := context.Background()
-			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, "dora-namespace", "model-registry-dora", "dora-namespace")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(allowed).To(BeTrue())
-		})
-
-		It("returns true for bella-namespace default SA and model-registry-bella in bella-namespace", func() {
-			ctx := context.Background()
-			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, "bella-namespace", "model-registry-bella", "bella-namespace")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(allowed).To(BeTrue())
-		})
-
-		It("returns true for kubeflow default SA and model-registry in kubeflow", func() {
-			ctx := context.Background()
-			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, "kubeflow", "model-registry", "kubeflow")
+			identity := &kubernetes.RequestIdentity{
+				UserID: k8mocks.DefaultTestUsers[1].UserName,
+				Groups: k8mocks.DefaultTestUsers[1].Groups,
+			}
+			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, identity, "model-registry-dora", "dora-namespace")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(allowed).To(BeTrue())
 		})
 	})
 
-	Context("when default SA in job namespace has no access to the registry", func() {
-		It("returns false when bella-namespace default SA checks access to model-registry-dora in dora-namespace", func() {
+	Context("when the authenticated user has no access to the registry", func() {
+		It("returns false for an unrelated namespace", func() {
 			ctx := context.Background()
-			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, "bella-namespace", "model-registry-dora", "dora-namespace")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(allowed).To(BeFalse())
-		})
-
-		It("returns false when job namespace default SA checks non-existent registry", func() {
-			ctx := context.Background()
-			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, "dora-namespace", "nonexistent-registry", "dora-namespace")
+			identity := &kubernetes.RequestIdentity{
+				UserID: k8mocks.DefaultTestUsers[2].UserName,
+				Groups: k8mocks.DefaultTestUsers[2].Groups,
+			}
+			allowed, err := kubernetes.CanNamespaceAccessRegistry(ctx, clientset, logger, identity, "model-registry-dora", "dora-namespace")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(allowed).To(BeFalse())
 		})

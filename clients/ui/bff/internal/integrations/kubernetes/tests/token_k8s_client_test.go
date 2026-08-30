@@ -115,9 +115,9 @@ var _ = Describe("KubernetesClient SSAR Test", func() {
 	})
 
 	Context("CanNamespaceAccessRegistry", func() {
-		It("should return true when namespace default SA has access to the registry", func() {
+		It("should return true when the authenticated user has access to the registry", func() {
 			identity := &kubernetes.RequestIdentity{
-				Token: k8mocks.DefaultTestUsers[0].Token,
+				Token: k8mocks.DefaultTestUsers[1].Token,
 			}
 			ctx := context.WithValue(context.Background(), constants.RequestIdentityKey, identity)
 
@@ -131,9 +131,9 @@ var _ = Describe("KubernetesClient SSAR Test", func() {
 			Expect(allowed).To(BeTrue())
 		})
 
-		It("should return false when namespace default SA has no access to the registry", func() {
+		It("should return false when the authenticated user has no access to the registry", func() {
 			identity := &kubernetes.RequestIdentity{
-				Token: k8mocks.DefaultTestUsers[0].Token,
+				Token: k8mocks.DefaultTestUsers[2].Token,
 			}
 			ctx := context.WithValue(context.Background(), constants.RequestIdentityKey, identity)
 
