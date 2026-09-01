@@ -677,7 +677,15 @@ func (m *ModelRegistryRepository) getModelRegistryAddress(ctx context.Context, c
 }
 
 func resolveAsyncUploadImage(ctx context.Context, client k8s.KubernetesClientInterface, isFederatedMode bool, podNamespace string) string {
-	if !isFederatedMode || podNamespace == "" {
+	// The image pin is not a federated-mode concept. Gating the ConfigMap read on
+	// isFederatedMode made the pin inert for every other deployment mode: a
+	// kubeflow-mode dashboard silently ran ghcr.io/kubeflow/hub/job/async-upload:latest
+	// even where an administrator had pinned a mirrored, vetted digest in
+	// model-registry-ui-config, and it did so without logging either fallback
+	// message because it returned before reaching them. Read the ConfigMap
+	// whenever we know our own namespace, and keep the default for the standalone
+	// case where there is nothing to read.
+	if podNamespace == "" {
 		return DefaultAsyncUploadImage
 	}
 	logger := helper.GetContextLogger(ctx)

@@ -1150,6 +1150,29 @@ var _ = Describe("resolveAsyncUploadImage", func() {
 			img := resolveAsyncUploadImage(mockCtx, client, false, "")
 			Expect(img).To(Equal(DefaultAsyncUploadImage))
 		})
+
+		It("should still honour a pinned image when the namespace is known", func() {
+			// The pin is not a federated-mode concept. Gating the ConfigMap read on
+			// isFederatedMode made an administrator's pinned digest inert on a
+			// kubeflow-mode dashboard, which then ran the upstream :latest image
+			// without logging either fallback message.
+			const testNamespace = "kubeflow-mode-ns"
+			defer func() { _ = client.DeleteConfigMap(mockCtx, testNamespace, asyncUploadConfigMapName) }()
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      asyncUploadConfigMapName,
+					Namespace: testNamespace,
+				},
+				Data: map[string]string{
+					asyncUploadConfigMapKey: "registry.example.com/pinned-image:v9",
+				},
+			}
+			_, err := client.CreateConfigMap(mockCtx, testNamespace, cm)
+			Expect(err).NotTo(HaveOccurred())
+
+			img := resolveAsyncUploadImage(mockCtx, client, false, testNamespace)
+			Expect(img).To(Equal("registry.example.com/pinned-image:v9"))
+		})
 	})
 
 	Context("when in federated mode with empty namespace", func() {
