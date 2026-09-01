@@ -363,7 +363,7 @@ func (m *ModelRegistryRepository) createModelTransferJobResources(
 		return nil, err
 	}
 
-	imageURI := resolveAsyncUploadImage(ctx, client, isFederatedMode, podNamespace)
+	imageURI := resolveAsyncUploadImage(ctx, client, podNamespace)
 	job := buildK8sJob(
 		jobName,
 		jobID,
@@ -676,8 +676,10 @@ func (m *ModelRegistryRepository) getModelRegistryAddress(ctx context.Context, c
 	return modelRegistry.ServerAddress, nil
 }
 
-func resolveAsyncUploadImage(ctx context.Context, client k8s.KubernetesClientInterface, isFederatedMode bool, podNamespace string) string {
-	if !isFederatedMode || podNamespace == "" {
+func resolveAsyncUploadImage(ctx context.Context, client k8s.KubernetesClientInterface, podNamespace string) string {
+	// The dashboard publishes this configuration in the BFF pod namespace in
+	// both Kubeflow and federated modes. Deployment mode must not bypass it.
+	if podNamespace == "" {
 		return DefaultAsyncUploadImage
 	}
 	logger := helper.GetContextLogger(ctx)

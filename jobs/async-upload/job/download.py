@@ -48,8 +48,8 @@ def download_from_s3(config: S3StorageConfig, storage_path: str):
 
     bucket_name = config.bucket
     prefix = config.key
-
-    # TODO: It might make sense to check if the provided key points to a single file first before assuming the directory needs to be traversed
+    directory_prefix = f"{prefix.rstrip('/')}/" if prefix else ""
+    downloaded_files = 0
 
     paginator = s3_client.get_paginator("list_objects_v2")
     for page in paginator.paginate(Bucket=bucket_name, Prefix=prefix):
@@ -57,12 +57,38 @@ def download_from_s3(config: S3StorageConfig, storage_path: str):
             key = obj["Key"]
             if key.endswith("/"):
                 continue
-            relative = os.path.relpath(key, prefix)
+
+            if key == prefix:
+                relative = os.path.basename(key)
+            elif key.startswith(directory_prefix):
+                relative = key[len(directory_prefix) :]
+            else:
+                # S3 Prefix matching is lexical, so "models/v1-other" also
+                # matches "models/v1". It is not a descendant of the requested
+                # directory and must not be written outside storage_path.
+                continue
+
+            relative = os.path.normpath(relative)
+            if (
+                relative in ("", ".", "..")
+                or os.path.isabs(relative)
+                or relative.startswith(f"..{os.sep}")
+            ):
+                raise ValueError(
+                    f"S3 object key {key!r} resolves outside the download directory"
+                )
+
             local_path = os.path.join(storage_path, relative)
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             logger.info(f"⏳ Downloading s3://{bucket_name}/{key} → {local_path}")
             s3_client.download_file(bucket_name, key, local_path)
             logger.info(f"☑️ Downloaded s3://{bucket_name}/{key} → {local_path}")
+            downloaded_files += 1
+
+    if downloaded_files == 0:
+        raise FileNotFoundError(
+            f"No S3 objects matched s3://{bucket_name}/{prefix}"
+        )
     logger.debug("✅ Model files downloaded from S3")
 
 

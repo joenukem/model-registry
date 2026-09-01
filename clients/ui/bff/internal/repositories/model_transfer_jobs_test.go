@@ -1133,6 +1133,27 @@ func TestResolveAsyncUploadTrustReturnsPartialStateOnDestinationTrustError(t *te
 	}
 }
 
+func TestResolveAsyncUploadImageUsesConfiguredImageInKubeflowMode(t *testing.T) {
+	const podNamespace = "kubeflow"
+	const configuredImage = "registry.example.com/async-upload@sha256:1234567890abcdef"
+	client := &fakeKubernetesClient{
+		configMapsByNamespace: map[string]map[string]*corev1.ConfigMap{
+			podNamespace: {
+				asyncUploadConfigMapName: {
+					Data: map[string]string{
+						asyncUploadConfigMapKey: configuredImage,
+					},
+				},
+			},
+		},
+	}
+
+	image := resolveAsyncUploadImage(testContext(), client, podNamespace)
+	if image != configuredImage {
+		t.Fatalf("expected configured image %q in Kubeflow mode, got %q", configuredImage, image)
+	}
+}
+
 var _ = Describe("resolveAsyncUploadImage", func() {
 	var (
 		client  k8s.KubernetesClientInterface
@@ -1145,28 +1166,21 @@ var _ = Describe("resolveAsyncUploadImage", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	Context("when not in federated mode", func() {
+	Context("when the pod namespace is empty", func() {
 		It("should return the default image", func() {
-			img := resolveAsyncUploadImage(mockCtx, client, false, "")
+			img := resolveAsyncUploadImage(mockCtx, client, "")
 			Expect(img).To(Equal(DefaultAsyncUploadImage))
 		})
 	})
 
-	Context("when in federated mode with empty namespace", func() {
-		It("should return the default image", func() {
-			img := resolveAsyncUploadImage(mockCtx, client, true, "")
-			Expect(img).To(Equal(DefaultAsyncUploadImage))
-		})
-	})
-
-	Context("when in federated mode with ConfigMap missing", func() {
+	Context("when the ConfigMap is missing", func() {
 		It("should fall back to the default image", func() {
-			img := resolveAsyncUploadImage(mockCtx, client, true, "bento-namespace")
+			img := resolveAsyncUploadImage(mockCtx, client, "bento-namespace")
 			Expect(img).To(Equal(DefaultAsyncUploadImage))
 		})
 	})
 
-	Context("when in federated mode with ConfigMap present", func() {
+	Context("when the ConfigMap is present", func() {
 		const testNamespace = "kubeflow"
 
 		AfterEach(func() {
@@ -1186,7 +1200,7 @@ var _ = Describe("resolveAsyncUploadImage", func() {
 			_, err := client.CreateConfigMap(mockCtx, testNamespace, cm)
 			Expect(err).NotTo(HaveOccurred())
 
-			img := resolveAsyncUploadImage(mockCtx, client, true, testNamespace)
+			img := resolveAsyncUploadImage(mockCtx, client, testNamespace)
 			Expect(img).To(Equal("registry.example.com/custom-image:v1"))
 		})
 
@@ -1203,7 +1217,7 @@ var _ = Describe("resolveAsyncUploadImage", func() {
 			_, err := client.CreateConfigMap(mockCtx, testNamespace, cm)
 			Expect(err).NotTo(HaveOccurred())
 
-			img := resolveAsyncUploadImage(mockCtx, client, true, testNamespace)
+			img := resolveAsyncUploadImage(mockCtx, client, testNamespace)
 			Expect(img).To(Equal(DefaultAsyncUploadImage))
 		})
 
@@ -1220,7 +1234,7 @@ var _ = Describe("resolveAsyncUploadImage", func() {
 			_, err := client.CreateConfigMap(mockCtx, testNamespace, cm)
 			Expect(err).NotTo(HaveOccurred())
 
-			img := resolveAsyncUploadImage(mockCtx, client, true, testNamespace)
+			img := resolveAsyncUploadImage(mockCtx, client, testNamespace)
 			Expect(img).To(Equal(DefaultAsyncUploadImage))
 		})
 
@@ -1237,7 +1251,7 @@ var _ = Describe("resolveAsyncUploadImage", func() {
 			_, err := client.CreateConfigMap(mockCtx, testNamespace, cm)
 			Expect(err).NotTo(HaveOccurred())
 
-			img := resolveAsyncUploadImage(mockCtx, client, true, testNamespace)
+			img := resolveAsyncUploadImage(mockCtx, client, testNamespace)
 			Expect(img).To(Equal(DefaultAsyncUploadImage))
 		})
 	})

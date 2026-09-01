@@ -145,8 +145,8 @@ func (kc *InternalKubernetesClient) CanAccessServiceInNamespace(ctx context.Cont
 	return true, nil
 }
 
-func (kc *InternalKubernetesClient) CanNamespaceAccessRegistry(ctx context.Context, _ *RequestIdentity, jobNamespace, registryName, registryNamespace string) (bool, error) {
-	return CanNamespaceAccessRegistry(ctx, kc.Client, kc.Logger, jobNamespace, registryName, registryNamespace)
+func (kc *InternalKubernetesClient) CanNamespaceAccessRegistry(ctx context.Context, identity *RequestIdentity, _ string, registryName, registryNamespace string) (bool, error) {
+	return CanNamespaceAccessRegistry(ctx, kc.Client, kc.Logger, identity, registryName, registryNamespace)
 }
 
 // GetSelfSubjectRulesReview gets the rules for what a user can access in a namespace
