@@ -22,6 +22,7 @@ from .models import (
     URISourceConfig,
     SourceType,
     DestinationType,
+    DEFAULT_OCI_BASE_IMAGE,
     URISourceStorageConfig,
     UploadIntent,
     CreateModelIntent,
@@ -78,7 +79,7 @@ def _parser() -> cap.ArgumentParser:
     p.add_argument("--destination-oci-registry")
     p.add_argument("--destination-oci-username")
     p.add_argument("--destination-oci-password")
-    p.add_argument("--destination-oci-base-image", default="public.ecr.aws/docker/library/busybox:latest")
+    p.add_argument("--destination-oci-base-image", default=DEFAULT_OCI_BASE_IMAGE)
     # The `type` converter is needed here to support env-based booleans
     # See: https://github.com/bw2/ConfigArgParse/tree/master?tab=readme-ov-file#special-values
     p.add_argument("--destination-oci-enable-tls-verify", default=True, type=str2bool)

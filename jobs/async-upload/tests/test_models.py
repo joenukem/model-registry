@@ -5,6 +5,8 @@ import pytest
 from pydantic import ValidationError
 
 from job.models import (
+    DEFAULT_OCI_BASE_IMAGE,
+    OCIStorageConfig,
     ModelConfig,
     UploadIntent,
     CreateModelIntent,
@@ -15,6 +17,20 @@ from job.models import (
     ModelVersionMetadata,
     ModelArtifactMetadata,
 )
+
+
+def test_default_oci_base_is_a_single_platform_manifest():
+    config = OCIStorageConfig(uri="registry.example.com/model:1", registry="registry.example.com")
+    assert config.base_image == DEFAULT_OCI_BASE_IMAGE
+    assert config.base_image == (
+        "public.ecr.aws/docker/library/busybox"
+        "@sha256:f97baa533a26513c453a362be331a43eb60214302f449c16571b23cea141dce4"
+    )
+    assert OCIStorageConfig(
+        uri=config.uri,
+        registry=config.registry,
+        base_image="registry.example.com/custom@sha256:" + "a" * 64,
+    ).base_image == "registry.example.com/custom@sha256:" + "a" * 64
 
 
 class TestModelConfigIntentTypes:

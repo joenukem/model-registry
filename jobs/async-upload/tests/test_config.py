@@ -6,13 +6,21 @@ import base64
 import json
 from pathlib import Path
 import pytest
-from job.config import get_config
+from job.config import _parser, get_config
 
-from job.models import S3StorageConfig, OCIStorageConfig, URISourceStorageConfig
+from job.models import DEFAULT_OCI_BASE_IMAGE, S3StorageConfig, OCIStorageConfig, URISourceStorageConfig
 
 MR_PREFIX = "MODEL_SYNC"
 MR_SOURCE_PREFIX = "MODEL_SYNC_SOURCE"
 MR_DEST_PREFIX = "MODEL_SYNC_DESTINATION"
+
+
+def test_oci_base_image_parser_uses_pinned_manifest_and_allows_override(monkeypatch):
+    monkeypatch.delenv("MODEL_SYNC_DESTINATION_OCI_BASE_IMAGE", raising=False)
+    parser = _parser()
+    assert parser.parse_args([]).destination_oci_base_image == DEFAULT_OCI_BASE_IMAGE
+    custom = "registry.example.com/base@sha256:" + "a" * 64
+    assert parser.parse_args(["--destination-oci-base-image", custom]).destination_oci_base_image == custom
 
 
 @pytest.fixture
@@ -534,5 +542,4 @@ def test_registry_custom_ca_missing_file_falls_back_to_system_defaults(
     ])
 
     assert config.registry.custom_ca is None
-
 

@@ -21,6 +21,14 @@ class DestinationType(StrEnum):
     OCI = "oci"
 
 
+# A single-platform manifest is required: olot updates the OCI layout pulled by
+# skopeo, and a multi-platform BusyBox index can push an unmodified amd64 child.
+DEFAULT_OCI_BASE_IMAGE = (
+    "public.ecr.aws/docker/library/busybox@sha256:"
+    "f97baa533a26513c453a362be331a43eb60214302f449c16571b23cea141dce4"
+)
+
+
 class BaseStorageConfig(BaseModel):
     """Base configuration for storage types."""
     credentials_path: str | None = None
@@ -43,7 +51,7 @@ class OCIConfig(BaseModel):
     username: str | None = None
     password: str | None = None
     email: str | None = None
-    base_image: str = "public.ecr.aws/docker/library/busybox:latest"
+    base_image: str = DEFAULT_OCI_BASE_IMAGE
     enable_tls_verify: bool = True
 
     @model_validator(mode='after')
