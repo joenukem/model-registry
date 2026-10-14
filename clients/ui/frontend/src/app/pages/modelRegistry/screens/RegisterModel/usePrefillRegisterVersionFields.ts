@@ -6,9 +6,18 @@ import useModelArtifactsByVersionId from '~/app/hooks/useModelArtifactsByVersion
 import useModelVersionsByRegisteredModel from '~/app/hooks/useModelVersionsByRegisteredModel';
 import { RegisterVersionFormData, ModelLocationType } from './useRegisterModelData';
 
+export type PrefillableRegisterVersionField =
+  | 'sourceModelFormat'
+  | 'sourceModelFormatVersion'
+  | 'modelLocationType'
+  | 'modelLocationEndpoint'
+  | 'modelLocationBucket'
+  | 'modelLocationRegion';
+
 type UsePrefillRegisterVersionFieldsArgs = {
   registeredModel?: RegisteredModel;
   setData: UpdateObjectAtPropAndValue<RegisterVersionFormData>;
+  isFieldDirty: (field: PrefillableRegisterVersionField) => boolean;
 };
 
 type UsePrefillRegisterVersionFieldsReturnVal = {
@@ -21,6 +30,7 @@ type UsePrefillRegisterVersionFieldsReturnVal = {
 export const usePrefillRegisterVersionFields = ({
   registeredModel,
   setData,
+  isFieldDirty,
 }: UsePrefillRegisterVersionFieldsArgs): UsePrefillRegisterVersionFieldsReturnVal => {
   const [allModelVersions, loadedModelVersions, loadModelVersionsError] =
     useModelVersionsByRegisteredModel(registeredModel?.id);
@@ -45,34 +55,43 @@ export const usePrefillRegisterVersionFields = ({
       !isLoadingVersionOrArtifact
     ) {
       prefilledForModelId.current = registeredModel.id;
+      const setIfNotDirty = <K extends PrefillableRegisterVersionField>(
+        field: K,
+        value: RegisterVersionFormData[K],
+      ) => {
+        if (!isFieldDirty(field)) {
+          setData(field, value);
+        }
+      };
+
       if (latestArtifact) {
-        setData('sourceModelFormat', latestArtifact.modelFormatName || '');
-        setData('sourceModelFormatVersion', latestArtifact.modelFormatVersion || '');
+        setIfNotDirty('sourceModelFormat', latestArtifact.modelFormatName || '');
+        setIfNotDirty('sourceModelFormatVersion', latestArtifact.modelFormatVersion || '');
 
         const decodedUri = (latestArtifact.uri && uriToStorageFields(latestArtifact.uri)) || null;
 
-        setData('modelLocationType', ModelLocationType.ObjectStorage);
+        setIfNotDirty('modelLocationType', ModelLocationType.ObjectStorage);
         if (decodedUri?.s3Fields) {
-          setData('modelLocationEndpoint', decodedUri.s3Fields.endpoint);
-          setData('modelLocationBucket', decodedUri.s3Fields.bucket);
-          setData('modelLocationRegion', decodedUri.s3Fields.region || '');
+          setIfNotDirty('modelLocationEndpoint', decodedUri.s3Fields.endpoint);
+          setIfNotDirty('modelLocationBucket', decodedUri.s3Fields.bucket);
+          setIfNotDirty('modelLocationRegion', decodedUri.s3Fields.region || '');
           // Don't prefill the path since a new version will have a new path.
         } else {
           // We don't want an old model's location staying here if we changed models but have no location to prefill.
-          setData('modelLocationEndpoint', '');
-          setData('modelLocationBucket', '');
-          setData('modelLocationRegion', '');
+          setIfNotDirty('modelLocationEndpoint', '');
+          setIfNotDirty('modelLocationBucket', '');
+          setIfNotDirty('modelLocationRegion', '');
         }
       } else {
-        setData('sourceModelFormat', '');
-        setData('sourceModelFormatVersion', '');
-        setData('modelLocationType', ModelLocationType.ObjectStorage);
-        setData('modelLocationEndpoint', '');
-        setData('modelLocationBucket', '');
-        setData('modelLocationRegion', '');
+        setIfNotDirty('sourceModelFormat', '');
+        setIfNotDirty('sourceModelFormatVersion', '');
+        setIfNotDirty('modelLocationType', ModelLocationType.ObjectStorage);
+        setIfNotDirty('modelLocationEndpoint', '');
+        setIfNotDirty('modelLocationBucket', '');
+        setIfNotDirty('modelLocationRegion', '');
       }
     }
-  }, [registeredModel, isLoadingVersionOrArtifact, latestArtifact, setData]);
+  }, [registeredModel, isLoadingVersionOrArtifact, latestArtifact, setData, isFieldDirty]);
 
   return {
     loadedPrefillData: !isLoadingVersionOrArtifact,
