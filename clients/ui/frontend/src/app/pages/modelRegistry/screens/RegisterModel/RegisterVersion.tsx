@@ -13,7 +13,7 @@ import {
 import spacing from '@patternfly/react-styles/css/utilities/Spacing/spacing';
 import { useParams, useNavigate } from 'react-router';
 import { Link } from 'react-router-dom';
-import { ApplicationsPage } from 'mod-arch-shared';
+import { ApplicationsPage, UpdateObjectAtPropAndValue } from 'mod-arch-shared';
 import { useThemeContext } from 'mod-arch-kubeflow';
 import {
   modelRegistryUrl,
@@ -36,7 +36,10 @@ import PrefilledModelRegistryField from './PrefilledModelRegistryField';
 import RegistrationFormFooter from './RegistrationFormFooter';
 import type { RegistrationInlineAlert } from './RegistrationFormFooter';
 import RegisteredModelSelector from './RegisteredModelSelector';
-import { usePrefillRegisterVersionFields } from './usePrefillRegisterVersionFields';
+import {
+  PrefillableRegisterVersionField,
+  usePrefillRegisterVersionFields,
+} from './usePrefillRegisterVersionFields';
 import { SubmitLabel, RegistrationErrorType } from './const';
 import { useRegistrationNotification } from './useRegistrationNotification';
 
@@ -51,6 +54,27 @@ const RegisterVersion: React.FC = () => {
   const author = user.userId || '';
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [formData, setData] = useRegisterVersionData(prefilledRegisteredModelId);
+  const userEditedPrefillFields = React.useRef(new Set<PrefillableRegisterVersionField>());
+  const isPrefillFieldDirty = React.useCallback(
+    (field: PrefillableRegisterVersionField) => userEditedPrefillFields.current.has(field),
+    [],
+  );
+  const setUserData = React.useCallback<UpdateObjectAtPropAndValue<typeof formData>>(
+    (field, value) => {
+      if (
+        field === 'sourceModelFormat' ||
+        field === 'sourceModelFormatVersion' ||
+        field === 'modelLocationType' ||
+        field === 'modelLocationEndpoint' ||
+        field === 'modelLocationBucket' ||
+        field === 'modelLocationRegion'
+      ) {
+        userEditedPrefillFields.current.add(field);
+      }
+      setData(field, value);
+    },
+    [setData],
+  );
   const {
     hasAccess: namespaceHasAccess,
     isLoading: isNamespaceAccessLoading,
@@ -81,6 +105,7 @@ const RegisterVersion: React.FC = () => {
     usePrefillRegisterVersionFields({
       registeredModel,
       setData,
+      isFieldDirty: isPrefillFieldDirty,
     });
 
   const handleSubmit = async () => {
@@ -186,7 +211,10 @@ const RegisterVersion: React.FC = () => {
               <RegisteredModelSelector
                 registeredModels={liveRegisteredModels}
                 registeredModelId={registeredModelId}
-                setRegisteredModelId={(id) => setData('registeredModelId', id)}
+                setRegisteredModelId={(id) => {
+                  userEditedPrefillFields.current.clear();
+                  setData('registeredModelId', id);
+                }}
                 isDisabled={!!prefilledRegisteredModelId}
               />
             </FormGroup>
@@ -195,7 +223,7 @@ const RegisterVersion: React.FC = () => {
             <StackItem>
               <RegistrationCommonFormSections
                 formData={formData}
-                setData={setData}
+                setData={setUserData}
                 isFirstVersion={false}
                 latestVersion={latestVersion}
                 namespaceHasAccess={namespaceHasAccess}
