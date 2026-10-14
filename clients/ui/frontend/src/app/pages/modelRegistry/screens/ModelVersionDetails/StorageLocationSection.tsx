@@ -149,7 +149,7 @@ const StorageLocationSection: React.FC<StorageLocationSectionProps> = ({
     );
   }
 
-  if (!transferJobLoaded || !namespacesLoaded) {
+  if (!transferJobLoaded || (!namespacesLoaded && !transferJob)) {
     return (
       <Bullseye>
         <Spinner size="lg" />
